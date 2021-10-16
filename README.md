@@ -15,13 +15,15 @@ Code to automate process of writing regression tests in Python.
 
 ## Software Requirements
 
-- Minimal user effort should be required to make it more convenient than writing tests manually (and to avoid having to write "proper" documentation [minimum email criterion])
+- Minimal user effort should be required to make it more convenient than writing tests manually (and to avoid having to write "proper" documentation \[minimum email criterion\])
 - The output tests should be "sensibly named"
+- Multiple tests/file and multiple files should be supported
 - Tests should be able to be (re)generated multiple times
-- Large (or unrecognised [non-core] Python object) results may be dumped as Pickle (alternatives?) objects and loaded for comparison in the testing.
+- Large (or unrecognised \[non-core\] Python object) results may be dumped as Pickle (alternatives?) objects and loaded for comparison in the testing.
 
 ## Current State
 
 - Simply generates a "TestResult" whose results can be examined. Cannot dump yet.
 - Generates floats (scalar/N-vector) for signature.
 - Captures "failures" and compares exceptions.
+- Several different modes of test generation (defined by class, in principle unlimited and extensible, fixable \[as in possible to be locked in signature\]). Currently support: zeros, ones, sequence (0,1,2...N), fixed value, random (specifiable limits), flat random (one random number repeated to fill array). Should cover most bases.
