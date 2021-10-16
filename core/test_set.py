@@ -3,12 +3,11 @@ import pickle
 
 class TestObj:
     """
-    Object containing information about a test to be dumped
+    Object containing information about a test to run
     """
-    def __init__(self, func, param_types, results=None, fail=False):
+    def __init__(self, func, param_types, fail=False):
         self.func = func
         self.param_types = param_types
-        self.results = results
         self.fail = fail
 
     def gen(self, types, length, *args, **kwargs):
@@ -20,14 +19,18 @@ class TestObj:
 
         for i, param in enumerate(self.param_types):
             param.gen(types[i], length, *args, **kwargs)
-        self.params = [param.value for param in self.param_types]
+
+        params = [param.value for param in self.param_types]
         try:
-            self.results = self.func(*self.params)
-        except:
+            results = self.func(*params)
+        except Exception as error:
             if self.fail:
-                self.results = True
+                results = error
             else:
-                raise NotImplementedError()
+                print('Unexpected failure in test')
+                raise error
+
+        return TestResult(self.func, params, results)
 
     def test(self):
         """
@@ -35,6 +38,20 @@ class TestObj:
         """
         test_res = self.func(*self.params)
         return test_res == self.results
+
+
+class TestResult:
+    """
+    Object containing dumpable test results
+    """
+    def __init__(self, func, params, results):
+        self._func = func
+        self._params = params
+        self._results = results
+
+    func = property(lambda self: self._func)
+    params = property(lambda self: self._params)
+    results = property(lambda self: self._results)
 
     def dump(self, file):
         """
