@@ -1,4 +1,7 @@
-class TestParam:
+from abc import ABC
+
+
+class TestParam(ABC):
     def __init__(self, *args, limits=None, **kwargs):
         if limits is None:
             self.limits = [0, 1]
@@ -21,35 +24,15 @@ class TestParam:
         self.limits_ = new_limits
 
     def gen(self, type, *args, **kwargs):
-        if type == 'zeros':
-            self.zeros(*args, **kwargs)
-        elif type == 'ones':
-            self.ones(*args, **kwargs)
-        elif type == 'rand':
-            self.rand(*args, **kwargs)
-        elif type == 'flatrand':
-            self.flatrand(*args, **kwargs)
-        elif type == 'seq':
-            self.seq(*args, **kwargs)
-        elif type == 'seq':
-            self.seq(*args, **kwargs)
-        elif type == 'fixed':
-            self.fixed(*args, **kwargs)
+        if hasattr(self, type):
+            getattr(self, type)(*args, **kwargs)
+        else:
+            print("Log: {self.__name__} cannot generate type {type}.")
 
-    def zeros(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def ones(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def rand(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def flatrand(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def seq(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def fixed(self, *args, **kwargs):
-        raise NotImplementedError()
+    def get_prefix_args(args: dict, prefix):
+        out = {}
+        for key, val in args.values():
+            if key.startswith(prefix+'_'):
+                new_key = key.replace(prefix+'_', '', 1)
+                out[new_key] = val
+        return out

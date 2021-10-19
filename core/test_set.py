@@ -3,7 +3,12 @@ import pickle
 
 class TestObj:
     """
-    Object containing information about a test to run
+    Object containing information about a function to test
+    """
+
+class TestFunc:
+    """
+    Object containing information about an object to test
     """
     def __init__(self, func, param_types, fail=False):
         self.func = func
