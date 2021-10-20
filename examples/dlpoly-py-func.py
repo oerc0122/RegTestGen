@@ -7,6 +7,7 @@ def StatisReadWrap(statis_filename):
     a = dlpoly.Statis.read(statis_filename)
     return a.data
 
+
 class StatisFileParam(TestParam):
     """ STATIS file input """
     def __init__(self, *args, **kwargs):
@@ -19,9 +20,9 @@ class StatisFileParam(TestParam):
         data = ArrayFloat()
         data.gen(type, length, *args, **kwargs)
         steps = VectorFloat()
-        steps.gen(kwargs.get('step_type', 'seq'), length[0], start=1, **self.get_prefix_args(kwargs, 'step'))
+        steps.gen(length[0], start=1, **self.get_prefix_args(kwargs, 'step', type='seq'))
         times = VectorFloat()
-        times.gen(kwargs.get('time_type', 'seq'), length[0], **self.get_prefix_args(kwargs, 'time'))
+        times.gen(length[0], **self.get_prefix_args(kwargs, 'time', type='seq'))
 
         self._value = self._gen_statis(data, stepstamps=steps, timestamps=times, **kwargs)
 
