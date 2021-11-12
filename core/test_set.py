@@ -1,177 +1,160 @@
-import pickle
-import pprint
+import itertools
+from collections import defaultdict
+
+from .test_obj import TestFunc
+from .utility import writeln
 
 
-class TestClass:
+class TestSet:
     """
-    Object containing information about a class to test
+    A set of tests to manipulate as a group.
     """
-
-
-class TestFunc:
-    """
-    Object containing information about an function to test
-    """
-    def __init__(self, func, param_types, fail=False):
-        self.func = func
-        self.param_types = param_types
-        self.fail = fail
-
-    def gen(self, types, length, *args, **kwargs):
-        """
-        Generate test data
-        """
-        if not isinstance(types, (list, tuple)):
-            types = [types for elem in self.param_types]
-
-        for i, param in enumerate(self.param_types):
-            param.gen(types[i], length, *args, **kwargs)
-
-        params = [param.value for param in self.param_types]
-        try:
-            results = self.func(*params)
-        except Exception as error:
-            if self.fail:
-                results = error
-            else:
-                print('Unexpected failure in test')
-                raise error
-
-        name = self.gen_name(types)
-
-        return TestResult(name, self.func, params, results)
-
-    def gen_name(self, types):
-        types = "_".join(f"{type}_{cls.name}" for type, cls in zip(types, self.param_types))
-        return (
-            "test_"
-            f"{self.func.__name__}_"
-            f"{types}"
-        )
-
-    def test(self):
-        """
-        Test against the stored values
-        """
-        test_res = self.func(*self.params)
-        return test_res == self.results
-
-
-class TestResult:
-    """
-    Object containing dumpable test results
-    """
-    def __init__(self, name, func, params, results):
-        self._name = ""
+    def __init__(self, name, requirements=set()):
         self.name = name
-        self._func = func
-        self._params = params
-        self._results = results
+        self.requirements = requirements
+        self._funcs = []
+        self._tests = []
+        self._lookup = defaultdict(list)
+        self._args = defaultdict(list)
+        self._func_groups = defaultdict(list)
 
-    tests = {}
-    func = property(lambda self: self._func)
-    params = property(lambda self: self._params)
-    results = property(lambda self: self._results)
+    funcs = property(lambda self: self._funcs)
+    tests = property(lambda self: self._tests)
+    lookup = property(lambda self: self._lookup)
+    args = property(lambda self: self._args)
+    func_groups = property(lambda self: self._func_groups)
 
     @property
-    def name(self):
-        return self._name
+    def groups(self):
+        return self.list_groups()
 
-    @name.setter
-    def name(self, value):
-        """
-        Append count to name
-        """
-        if self.name:
-            print("Log: Cannot overwrite name - " + self.name)
-            return
-        count = TestResult.tests.get(value, 0) + 1
-        TestResult.tests[value] = count
-        if count > 1:
-            self._name = value + f"_{count}"
-        else:
-            self._name = value
+    def list_groups(self, func=None):
+        if func is not None:
+            return self.lookup[func]
+        return [group for group in self.func_groups]
 
-    def dump(self, file):
-        """
-        Dump as pickle object for simple tests
-        """
-        pickle.dump(self, file)
+    def add_requirement(self, module, *imports):
+        self.requirements.add(tuple(module, *imports))
 
-    def write(self, file, format):
-        if format == 'pytest':
-            self.write_pytest(file)
-        else:
-            print(f"Log: Cannot write to format {format}")
+    def add_test_function(self, func, param_types, ID=None, fail=False, groups=()):
+        if ID is None:
+            ID = func.__name__
 
-    def write_pytest(self, file):
-        """
-        Write as Pytest test
-        Assumes open file
-        """
+        new = TestFunc(func, param_types, fail)
+        self._funcs.append(new)
+        self._add_func_to_group('all', new)
+        self._add_func_to_group(ID, new)
+        for group in groups:
+            self._add_func_to_group(group, new)
 
-        _writeln("", file=file)
-        _writeln(f"def {self.name}():", file=file)
-        if all(self.is_simple(param) for param in self.params):
-            _writeln(f"params = {pprint.pformat(self.params)}", indent=1, file=file)
-        else:
-            with open(self.name+".inputdata", 'wb') as pickleFile:
-                pickle.dump(self.params, pickleFile)
-            _writeln(f"""with open({self.name+".inputdata"}, "rb") as pickleFile:""", indent=1, file=file)
-            _writeln("params = pickle.load(pickleFile)", indent=2, file=file)
+    def add_arg_to_group(self, group, types, length, *args, **kwargs):
+        params = (types, length, args, kwargs)
+        self._args[group].append(params)
 
-        if issubclass(type(self.results), BaseException): # Result is exception (expected)
-            _writeln(f"pytest.raises({type(self.results).__name__}, {self.func.__name__}, *params)", indent=1, file=file)
-            return
+    def _add_func_to_group(self, group, func):
+        self._func_groups[group].append(func)
+        self._lookup[func].append(group)
 
-        if self.is_simple(self.results):
-            _writeln(f"expected_results = {pprint.pformat(self.results)}", indent=1, file=file)
-        else:
-            with open(self.name+".resultdata", 'wb') as pickleFile:
-                pickle.dump(self.results, pickleFile)
+    def clear_gen(self, group):
+        self._args[group] = defaultdict(list)
 
-            _writeln(f"""with open({self.name+".resultdata"}, "rb") as pickleFile:""", indent=1, file=file)
-            _writeln("expected_results = pickle.load(pickleFile)", indent=2, file=file)
+    def write(self, group, filename, **kwargs):
+        print(f"Writing {group} to {filename}")
 
-        _writeln(f"results = {self.func.__name__}(*params)", indent=1, file=file)
-        _writeln("assert results == expected_results", indent=1, file=file)
-        _writeln("", file=file)
+        with open(filename, 'w') as outFile:
+            # Write preamble
+            writeln("import pytest", file=outFile)
+            writeln("import pickle", file=outFile)
+            for imp in itertools.chain(self.requirements, kwargs.get('required_imports', ())):
+                print(imp)
+                # If importing whole module
+                if not isinstance(imp, (list, tuple)):
+                    writeln(f"import {imp}", file=outFile)
+                # Alternative syntax
+                elif len(imp) == 1:
+                    writeln(f"import {imp[0]}", file=outFile)
+                # Else importing components
+                else:
+                    writeln(f"from {imp[0]} import {', '.join(imp[1:])}", file=outFile)
+
+            for result in self.gen_iter(group):
+                result.write_pytest(outFile)
+
+    def gen_iter(self, group):
+        for func in self._func_groups[group]:
+            args_to_test = set()
+            for local_group in self.lookup[func]:
+                for args in self._args[local_group]:
+                    args = self._tuplise(args)
+                    args_to_test.add(args)
+
+            for args in args_to_test:
+                types, length, args, kwargs = _from_tuple(args)
+                result = func.gen(types, length, *args, **kwargs)
+                yield result
+
+    def gen(self, group):
+        return [result for result in self.gen_iter(group)]
 
     @staticmethod
-    def read(file):
-        """
-        Read pickle file
-        """
-        return pickle.load(file)
+    def _tuplise(args):
+        tupargs = _to_tuple(args[2])
+        tupkwargs = _to_tuple((args[3],))[0]
 
-    @staticmethod
-    def is_simple(obj):
-        """
-        Determine whether a file is simple enough to just be written into the test
-        or whether it deserves dumping to a file.
-        """
-        return pprint.isreadable(obj) and len(pprint.pformat(obj)) < 80
+        return (args[0], args[1], tupargs, tupkwargs)
 
 
-def _writeln(*line, file=None, indent=0, **kwargs):
-    file.write((" "*3*indent)+"".join(line)+'\n')
-
-
-def write_all(test_set, file, **kwargs):
-    with open(file, 'w') as outFile:
+def write_all(test_set, filename, **kwargs):
+    with open(filename, 'w') as outFile:
         # Write preamble
-        _writeln("import pytest", file=outFile)
-        _writeln("import pickle", file=outFile)
+        writeln("import pytest", file=outFile)
+        writeln("import pickle", file=outFile)
         for imp in kwargs.get('required_imports', []):
             # If importing whole module
             if not isinstance(imp, (list, tuple)):
-                _writeln(f"import {imp}", file=outFile)
+                writeln(f"import {imp}", file=outFile)
             # Alternative syntax
             elif len(imp) == 1:
-                _writeln(f"import {imp[0]}", file=outFile)
+                writeln(f"import {imp[0]}", file=outFile)
             # Else importing components
             else:
-                _writeln(f"from {imp[0]} import {', '.join(imp[1:])}", file=outFile)
+                writeln(f"from {imp[0]} import {', '.join(imp[1:])}", file=outFile)
 
         for test in test_set:
             test.write_pytest(outFile)
+
+
+def _to_tuple(args):
+    proc_args = []
+    for arg in args:
+        if isinstance(arg, list):
+            proc_args.append(("_:list", _to_tuple(arg)))
+        elif isinstance(arg, tuple):
+            proc_args.append(("_:tuple", _to_tuple(arg)))
+        elif isinstance(arg, dict):
+            proc_args.append(("_:dict", _to_tuple(arg.items())))
+        else:
+            proc_args.append(arg)
+
+    if not isinstance(proc_args, tuple):
+        proc_args = tuple(proc_args)
+
+    return proc_args
+
+
+def _from_tuple(args):
+    outArgs = []
+    for arg in args:
+        if arg and isinstance(arg, tuple):
+            if arg[0] == '_:dict':
+                outArgs.append({key: val for key, val in _from_tuple(arg[1:][0])})
+            elif arg[0] == '_:list':
+                outArgs.append([val for val in _from_tuple(arg[1:])[0]])
+            elif arg[0] == '_:tuple':
+                outArgs.append(tuple(_from_tuple(arg[1:]))[0])
+            else:
+                outArgs.append(arg)
+        else:
+            outArgs.append(arg)
+
+    return outArgs
