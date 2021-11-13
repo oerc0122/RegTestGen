@@ -53,9 +53,8 @@ class TestResult(ABC):
         """
         raise NotImplementedError()
 
-    def write_prop(self, test_filename, store_filename, par_name, par_data, curr_indent=0):
+    def save_prop(self, test_filename, store_filename, par_name, par_data, curr_indent=0):
 
-        print(par_name)
         try:
             simple = all(self.is_simple(param) for param in par_data)
         except TypeError:

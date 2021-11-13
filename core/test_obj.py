@@ -2,6 +2,7 @@ from abc import ABC
 
 from .test_result import TestResult
 from .utility import writeln
+import sys
 
 
 class TestBase(ABC):
@@ -23,9 +24,7 @@ class TestBase(ABC):
         return params
 
     def gen_name(self, types):
-        print(types)
         types = "_".join(f"{type}_{cls.name}" for type, cls in zip(types, self.param_types))
-        print(types)
         return f"test_{self.func.__name__}_{types}"
 
 
@@ -51,7 +50,6 @@ class TestClass(TestBase):
 
         args = self.gen_params(types, length, *args, **kwargs)
         initialise = (*self.init_args,)
-        print("Hi", initialise)
         instance = self.cls(*initialise)
 
         if self.func is not None:
@@ -93,21 +91,30 @@ class TestClass(TestBase):
             writeln("", file=filename)
             writeln(f"def {self.name}():", file=filename)
 
-            self.write_prop(filename, self.name+".initdata", "init_args", self.init_args)
+            self.save_prop(filename, self.name+".initdata", "init_args", self.init_args)
             writeln(f"instance = {self.cls.__module__}.{self.cls.__name__}(*init_args)", indent=1, file=filename)
 
-            self.write_prop(filename, self.name+".inputdata", "params", self.params)
+            self.save_prop(filename, self.name+".inputdata", "params", self.params)
             writeln(f"instance.{self.func.__name__}(*params)", indent=1, file=filename)
 
             if issubclass(type(self.results), BaseException): # Result is exception (expected)
                 writeln(f"pytest.raises({type(self.results).__name__}, {self.func.__name__}, *params)", indent=1, file=filename)
                 return
 
-            self.write_prop(filename, self.name+".resultdata", "expected_results", self.results)
+            self.save_prop(filename, self.name+".resultdata", "expected_results", self.results)
 
-            writeln(f"for res, prop in zip(expected_results, {self.props}):", indent=1, file=filename)
-            writeln("results = getattr(instance, prop)", indent=2, file=filename)
-            writeln("assert results == res", indent=2, file=filename)
+            for i, prop in enumerate(self.props):
+                writeln(f"results = getattr(instance, '{prop}')", indent=2, file=filename)
+
+                if "numpy" in sys.modules:
+                    import numpy
+                    if isinstance(self.results[i], numpy.ndarray):
+                        writeln(f"numpy.array_equal(results, expected_results[{i}])", indent=2, file=filename)
+                    else:
+                        writeln(f"assert results == expected_results[{i}]", indent=2, file=filename)
+                else:
+                    writeln(f"assert results == expected_results[{i}]", indent=2, file=filename)
+
 
             writeln("", file=filename)
 
@@ -157,14 +164,23 @@ class TestFunc(TestBase):
             writeln("", file=filename)
             writeln(f"def {self.name}():", file=filename)
 
-            self.write_prop(filename, self.name+".inputdata", "params", self.params)
+            self.save_prop(filename, self.name+".inputdata", "params", self.params)
 
             if issubclass(type(self.results), BaseException): # Result is exception (expected)
                 writeln(f"pytest.raises({type(self.results).__name__}, {self.func.__name__}, *params)", indent=1, file=filename)
                 return
 
-            self.write_prop(filename, self.name+".resultdata", "expected_results", self.results)
+            self.save_prop(filename, self.name+".resultdata", "expected_results", self.results)
 
             writeln(f"results = {self.func.__name__}(*params)", indent=1, file=filename)
-            writeln("assert results == expected_results", indent=1, file=filename)
+
+            if 'numpy' in sys.modules:
+                import numpy
+                if isinstance(self.results, numpy.ndarray):
+                    writeln('numpy.array_equal(results, expected_results)', indent=1, file=filename)
+                else:
+                    writeln("assert results == expected_results", indent=1, file=filename)
+            else:
+                writeln("assert results == expected_results", indent=1, file=filename)
+
             writeln("", file=filename)

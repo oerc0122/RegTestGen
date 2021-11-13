@@ -98,7 +98,6 @@ class TestSet:
                     writeln(f"from {imp[0]} import {', '.join(imp[1:])}", file=outFile)
 
             for result in self.gen_iter(group):
-                print(result)
                 result.write_pytest(outFile)
 
     def gen_iter(self, group):
@@ -125,7 +124,6 @@ class TestSet:
                 types, length, args, kwargs = _from_tuple(args)
                 result = cls.gen(types, length, *args, **kwargs)
                 yield result
-
 
     def gen(self, group):
         return [result for result in self.gen_iter(group)]

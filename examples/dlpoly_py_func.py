@@ -4,7 +4,8 @@ from RegTestGen.params.float_param import ArrayFloat, VectorFloat
 
 
 def StatisReadWrap(statis_filename):
-    a = dlpoly.Statis.read(statis_filename)
+    a = dlpoly.statis.Statis()
+    a.read(statis_filename)
     return a.data
 
 
