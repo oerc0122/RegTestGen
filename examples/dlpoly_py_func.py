@@ -1,6 +1,6 @@
 import dlpoly
-from .test_param import TestParam
-from .float_param import ArrayFloat, VectorFloat
+from RegTestGen.params.test_param import TestParam
+from RegTestGen.params.float_param import ArrayFloat, VectorFloat
 
 
 def StatisReadWrap(statis_filename):
@@ -13,18 +13,18 @@ class StatisFileParam(TestParam):
     def __init__(self, *args, **kwargs):
         TestParam.__init__(self, *args, **kwargs)
 
-    def gen(self, type, length, *args, **kwargs):
+    def gen(self, type, length=None, *args, **kwargs):
         if len(length) != 2:
             raise ValueError('')
 
         data = ArrayFloat()
         data.gen(type, length, *args, **kwargs)
         steps = VectorFloat()
-        steps.gen(length[0], start=1, **self.get_prefix_args(kwargs, 'step', type='seq'))
+        steps.gen(length=length[0], **self.get_prefix_args(kwargs, 'step', type='seq', start=1))
         times = VectorFloat()
-        times.gen(length[0], **self.get_prefix_args(kwargs, 'time', type='seq'))
+        times.gen(length=length[0], **self.get_prefix_args(kwargs, 'time', type='seq'))
 
-        self._value = self._gen_statis(data, stepstamps=steps, timestamps=times, **kwargs)
+        self._value = self._gen_statis(data.value, stepstamps=steps.value, timestamps=times.value, **kwargs)
 
     @staticmethod
     def _gen_statis(data, file='tmpfile', title=None, stepstamps=None, timestamps=None):
@@ -40,10 +40,10 @@ class StatisFileParam(TestParam):
             raise ValueError('Bad lengths in generation of fake dlpoly-data')
 
         with open(file, 'w') as outFile:
-            print("title:", title, file=outFile )
+            print("title:", title, file=outFile)
             print("energy units: kcal/mol", file=outFile)
             for i, line in enumerate(data):
-                print("{:10d}{:14.6E}{:10d}".format(stepstamps[i], timestamps[i], len(line)), file=outFile)
+                print("{:10d}{:14.6E}{:10d}".format(int(stepstamps[i]), timestamps[i], len(line)), file=outFile)
                 for j in range(0, len(line), 5):
                     q = min(5, len(line)-j)
                     print(("{:14.6E}"*q).format(*line[j:j+q]), file=outFile)

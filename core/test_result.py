@@ -1,24 +1,19 @@
 import pickle
 import pprint
+from abc import ABC
 
 from .utility import writeln
 
 
-class TestResult:
+class TestResult(ABC):
     """
     Object containing dumpable test results
     """
-    def __init__(self, name, func, params, results):
+    def __init__(self, name):
         self._name = ""
         self.name = name
-        self._func = func
-        self._params = params
-        self._results = results
 
     tests = {}
-    func = property(lambda self: self._func)
-    params = property(lambda self: self._params)
-    results = property(lambda self: self._results)
 
     @property
     def name(self):
@@ -56,33 +51,23 @@ class TestResult:
         Write as Pytest test
         Assumes open file
         """
+        raise NotImplementedError()
 
-        writeln("", file=filename)
-        writeln(f"def {self.name}():", file=filename)
-        if all(self.is_simple(param) for param in self.params):
-            writeln(f"params = {pprint.pformat(self.params)}", indent=1, file=filename)
+    def write_prop(self, test_filename, store_filename, par_name, par_data, curr_indent=0):
+
+        print(par_name)
+        try:
+            simple = all(self.is_simple(param) for param in par_data)
+        except TypeError:
+            simple = self.is_simple(par_data)
+
+        if simple:
+            writeln(f"{par_name} = {pprint.pformat(par_data)}", indent=curr_indent+1, file=test_filename)
         else:
-            with open(self.name+".inputdata", 'wb') as pickleFile:
-                pickle.dump(self.params, pickleFile)
-            writeln(f"""with open({self.name+".inputdata"}, "rb") as pickleFile:""", indent=1, file=filename)
-            writeln("params = pickle.load(pickleFile)", indent=2, file=filename)
-
-        if issubclass(type(self.results), BaseException): # Result is exception (expected)
-            writeln(f"pytest.raises({type(self.results).__name__}, {self.func.__name__}, *params)", indent=1, file=filename)
-            return
-
-        if self.is_simple(self.results):
-            writeln(f"expected_results = {pprint.pformat(self.results)}", indent=1, file=filename)
-        else:
-            with open(self.name+".resultdata", 'wb') as pickleFile:
-                pickle.dump(self.results, pickleFile)
-
-            writeln(f"""with open({self.name+".resultdata"}, "rb") as pickleFile:""", indent=1, file=filename)
-            writeln("expected_results = pickle.load(pickleFile)", indent=2, file=filename)
-
-        writeln(f"results = {self.func.__name__}(*params)", indent=1, file=filename)
-        writeln("assert results == expected_results", indent=1, file=filename)
-        writeln("", file=filename)
+            with open(store_filename, 'wb') as pickleFile:
+                pickle.dump(par_data, pickleFile)
+            writeln(f"""with open("{store_filename}", "rb") as pickleFile:""", indent=curr_indent+1, file=test_filename)
+            writeln(f"{par_name} = pickle.load(pickleFile)", indent=curr_indent+2, file=test_filename)
 
     @staticmethod
     def read(filename):

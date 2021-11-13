@@ -1,5 +1,7 @@
 from abc import ABC
+
 from .test_result import TestResult
+from .utility import writeln
 
 
 class TestBase(ABC):
@@ -21,7 +23,9 @@ class TestBase(ABC):
         return params
 
     def gen_name(self, types):
+        print(types)
         types = "_".join(f"{type}_{cls.name}" for type, cls in zip(types, self.param_types))
+        print(types)
         return f"test_{self.func.__name__}_{types}"
 
 
@@ -32,7 +36,10 @@ class TestClass(TestBase):
     def __init__(self, cls, init_args, func, param_types, props, fail=False):
         self.cls = cls
         self.init_args = init_args
-        self.func = func
+        if isinstance(func, str):
+            self.func = getattr(cls, func)
+        else:
+            self.func = func
         self.param_types = param_types
         self.props = props
         self.fail = fail
@@ -41,13 +48,17 @@ class TestClass(TestBase):
         """
         Generate test data
         """
+
         args = self.gen_params(types, length, *args, **kwargs)
-        instance = self.cls(*args)
+        initialise = (*self.init_args,)
+        print("Hi", initialise)
+        instance = self.cls(*initialise)
 
         if self.func is not None:
             try:
                 params = self.gen_params(types, length, *args, **kwargs)
-                getattr(instance, self.func)(*params)
+                self.func(instance, *params)
+                results = [getattr(instance, prop) for prop in self.props]
 
             except Exception as error:
                 if self.fail:
@@ -56,26 +67,49 @@ class TestClass(TestBase):
                     print('Unexpected failure in test')
                     raise error
 
-        results = [getattr(instance, prop) for prop in self.props]
-
         name = self.gen_name(types)
-        return TestResult(name, self.func, params, results)
+        name = name.split('_')
+        name.insert(1, self.cls.__name__)
+        name = '_'.join(name)
 
-    @staticmethod
-    def gen_method(cls, method, method_args, types, length, *args, **kwargs):
-        """
-        Run method
-        """
-        params = self.gen_params(types, length, *args, **kwargs)
+        return self.TestClassResult(name, self.cls, initialise, self.func, self.props, params, results)
 
-        try:
-            results = self.func(*params)
-        except Exception as error:
-            if self.fail:
-                results = error
-            else:
-                print('Unexpected failure in test')
-                raise error
+    class TestClassResult(TestResult):
+        def __init__(self, name, cls, init_args, func, props, params, results):
+            TestResult.__init__(self, name)
+            self.cls = cls
+            self.init_args = init_args
+            self.props = props
+            self.func = func
+            self.params = params
+            self.results = results
+
+        def write_pytest(self, filename):
+            """
+            Write as Pytest test
+            Assumes open file
+            """
+
+            writeln("", file=filename)
+            writeln(f"def {self.name}():", file=filename)
+
+            self.write_prop(filename, self.name+".initdata", "init_args", self.init_args)
+            writeln(f"instance = {self.cls.__module__}.{self.cls.__name__}(*init_args)", indent=1, file=filename)
+
+            self.write_prop(filename, self.name+".inputdata", "params", self.params)
+            writeln(f"instance.{self.func.__name__}(*params)", indent=1, file=filename)
+
+            if issubclass(type(self.results), BaseException): # Result is exception (expected)
+                writeln(f"pytest.raises({type(self.results).__name__}, {self.func.__name__}, *params)", indent=1, file=filename)
+                return
+
+            self.write_prop(filename, self.name+".resultdata", "expected_results", self.results)
+
+            writeln(f"for res, prop in zip(expected_results, {self.props}):", indent=1, file=filename)
+            writeln("results = getattr(instance, prop)", indent=2, file=filename)
+            writeln("assert results == res", indent=2, file=filename)
+
+            writeln("", file=filename)
 
 
 class TestFunc(TestBase):
@@ -105,4 +139,32 @@ class TestFunc(TestBase):
 
         name = self.gen_name(types)
 
-        return TestResult(name, self.func, params, results)
+        return self.TestFuncResult(name, self.func, params, results)
+
+    class TestFuncResult(TestResult):
+        def __init__(self, name, func, params, results):
+            TestResult.__init__(self, name)
+            self.func = func
+            self.params = params
+            self.results = results
+
+        def write_pytest(self, filename):
+            """
+            Write as Pytest test
+            Assumes open file
+            """
+
+            writeln("", file=filename)
+            writeln(f"def {self.name}():", file=filename)
+
+            self.write_prop(filename, self.name+".inputdata", "params", self.params)
+
+            if issubclass(type(self.results), BaseException): # Result is exception (expected)
+                writeln(f"pytest.raises({type(self.results).__name__}, {self.func.__name__}, *params)", indent=1, file=filename)
+                return
+
+            self.write_prop(filename, self.name+".resultdata", "expected_results", self.results)
+
+            writeln(f"results = {self.func.__name__}(*params)", indent=1, file=filename)
+            writeln("assert results == expected_results", indent=1, file=filename)
+            writeln("", file=filename)

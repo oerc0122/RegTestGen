@@ -8,22 +8,22 @@ class ScalarFloat(TestParam):
         TestParam.__init__(self, *args, **kwargs)
 
     def zeros(self, *args, **kwargs):
-        self.value_ = 0.0
+        self._value = 0.0
 
     def ones(self, *args, **kwargs):
-        self.value_ = 1.0
+        self._value = 1.0
 
     def rand(self, *args, **kwargs):
-        self.value_ = uniform(*kwargs.get('limits', [0, 1]))
+        self._value = uniform(*kwargs.get('limits', [0, 1]))
 
     def randflat(self, *args, **kwargs):
-        self.value_ = uniform(*kwargs.get('limits', [0, 1]))
+        self._value = uniform(*kwargs.get('limits', [0, 1]))
 
     def seq(self, *args, **kwargs):
-        self.value_ = 0.0
+        self._value = 0.0
 
     def fixed(self, *args, **kwargs):
-        self.value_ = kwargs['fixval']
+        self._value = kwargs['fixval']
 
 
 class VectorFloat(TestParam):
@@ -32,26 +32,26 @@ class VectorFloat(TestParam):
         TestParam.__init__(self, *args, **kwargs)
 
     def zeros(self, length, *args, **kwargs):
-        self.value_ = [0.0 for i in range(length)]
+        self._value = [0.0 for i in range(length)]
 
     def ones(self, length, *args, **kwargs):
-        self.value_ = [1.0 for i in range(length)]
+        self._value = [1.0 for i in range(length)]
 
     def rand(self, length, *args, **kwargs):
-        self.value_ = [uniform(*kwargs.get('limits', [0, 1])) for i in range(length)]
+        self._value = [uniform(*kwargs.get('limits', [0, 1])) for i in range(length)]
 
     def randflat(self, length, *args, **kwargs):
         tmp = uniform(*kwargs.get('limits', [0, 1]))
-        self.value_ = [tmp for i in range(length)]
+        self._value = [tmp for i in range(length)]
 
     def seq(self, length, *args, **kwargs):
         start = kwargs.get('start', 0)
         step = kwargs.get('step', 1)
         length = start + length
-        self.value_ = [float(i) for i in range(start, length, step)]
+        self._value = [float(i) for i in range(start, length, step)]
 
     def fixed(self, length, *args, **kwargs):
-        self.value_ = [kwargs['fixval'] for i in range(length)]
+        self._value = [kwargs['fixval'] for i in range(length)]
 
 
 class ArrayFloat(TestParam):
@@ -60,25 +60,25 @@ class ArrayFloat(TestParam):
         TestParam.__init__(self, *args, **kwargs)
 
     def zeros(self, length, *args, **kwargs):
-        self.value_ = [[0.0 for i in range(length[0])] for j in range(length[1])]
+        self._value = [[0.0 for i in range(length[0])] for j in range(length[1])]
 
     def ones(self, length, *args, **kwargs):
-        self.value_ = [[1.0 for i in range(length[0])] for j in range(length[1])]
+        self._value = [[1.0 for i in range(length[0])] for j in range(length[1])]
 
     def rand(self, length, *args, **kwargs):
-        self.value_ = [[uniform(*kwargs.get('limits', [0, 1])) for i in range(length[0])] for j in range(length[1])]
+        self._value = [[uniform(*kwargs.get('limits', [0, 1])) for i in range(length[0])] for j in range(length[1])]
 
     def randflat(self, length, *args, **kwargs):
         tmp = uniform(*kwargs.get('limits', [0, 1]))
-        self.value_ = [[tmp for i in range(length[0])] for j in range(length[1])]
+        self._value = [[tmp for i in range(length[0])] for j in range(length[1])]
 
     def seq(self, length, *args, **kwargs):
         start = kwargs.get('start', 0)
         step = kwargs.get('step', 1)
         length = [a + b for a, b in (start, length)]
 
-        self.value_ = [[float(i*j + i) for i in range(start[0], length[0], step[0])]
+        self._value = [[float(i*j + i) for i in range(start[0], length[0], step[0])]
                        for j in range(start[1], length[1], step[1])]
 
     def fixed(self, length, *args, **kwargs):
-        self.value_ = [[kwargs['fixval'] for i in range(length[0])] for j in range(length[1])]
+        self._value = [[kwargs['fixval'] for i in range(length[0])] for j in range(length[1])]

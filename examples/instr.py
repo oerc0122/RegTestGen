@@ -12,7 +12,6 @@ tests = []
 
 tests.append(TestFunc(add_two_numbers, [ScalarFloat(), FixedParam(value=7.0)]))
 tests.append(TestFunc(add_two_numbers, [ScalarFloat(), VectorFloat()], fail=True))
-# tests.append(TestFunc(StatisReadWrap, [VectorArray(length=[30,27])], test_prop=['data']))
 
 for test in tests:
     results.append(test.gen('fixed', length=1, fixval=2.0))

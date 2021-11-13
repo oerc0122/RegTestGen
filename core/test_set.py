@@ -1,7 +1,7 @@
 import itertools
 from collections import defaultdict
 
-from .test_obj import TestFunc
+from .test_obj import TestFunc, TestClass
 from .utility import writeln
 
 
@@ -13,10 +13,12 @@ class TestSet:
         self.name = name
         self.requirements = requirements
         self._funcs = []
+        self._classes = []
         self._tests = []
         self._lookup = defaultdict(list)
         self._args = defaultdict(list)
         self._func_groups = defaultdict(list)
+        self._class_groups = defaultdict(list)
 
     funcs = property(lambda self: self._funcs)
     tests = property(lambda self: self._tests)
@@ -36,16 +38,31 @@ class TestSet:
     def add_requirement(self, module, *imports):
         self.requirements.add(tuple(module, *imports))
 
-    def add_test_function(self, func, param_types, ID=None, fail=False, groups=()):
+    def add_test_function(self, func, param_types, fail=False, ID=None, groups=()):
         if ID is None:
             ID = func.__name__
+        if not isinstance(param_types, tuple):
+            param_types = tuple(param_types)
 
         new = TestFunc(func, param_types, fail)
         self._funcs.append(new)
         self._add_func_to_group('all', new)
+        self._add_func_to_group('funcs', new)
         self._add_func_to_group(ID, new)
         for group in groups:
             self._add_func_to_group(group, new)
+
+    def add_test_class(self, cls, init_args, func, param_types, props, fail=False, ID=None, groups=()):
+        if ID is None:
+            ID = cls.__name__
+
+        new = TestClass(cls, init_args, func, param_types, props, fail=False)
+        self._classes.append(new)
+        self._add_class_to_group('all', new)
+        self._add_class_to_group('classes', new)
+        self._add_class_to_group(ID, new)
+        for group in groups:
+            self._add_class_to_group(group, new)
 
     def add_arg_to_group(self, group, types, length, *args, **kwargs):
         params = (types, length, args, kwargs)
@@ -54,6 +71,10 @@ class TestSet:
     def _add_func_to_group(self, group, func):
         self._func_groups[group].append(func)
         self._lookup[func].append(group)
+
+    def _add_class_to_group(self, group, cls):
+        self._class_groups[group].append(cls)
+        self._lookup[cls].append(group)
 
     def clear_gen(self, group):
         self._args[group] = defaultdict(list)
@@ -66,7 +87,6 @@ class TestSet:
             writeln("import pytest", file=outFile)
             writeln("import pickle", file=outFile)
             for imp in itertools.chain(self.requirements, kwargs.get('required_imports', ())):
-                print(imp)
                 # If importing whole module
                 if not isinstance(imp, (list, tuple)):
                     writeln(f"import {imp}", file=outFile)
@@ -78,6 +98,7 @@ class TestSet:
                     writeln(f"from {imp[0]} import {', '.join(imp[1:])}", file=outFile)
 
             for result in self.gen_iter(group):
+                print(result)
                 result.write_pytest(outFile)
 
     def gen_iter(self, group):
@@ -92,6 +113,19 @@ class TestSet:
                 types, length, args, kwargs = _from_tuple(args)
                 result = func.gen(types, length, *args, **kwargs)
                 yield result
+
+        for cls in self._class_groups[group]:
+            args_to_test = set()
+            for local_group in self.lookup[cls]:
+                for args in self._args[local_group]:
+                    args = self._tuplise(args)
+                    args_to_test.add(args)
+
+            for args in args_to_test:
+                types, length, args, kwargs = _from_tuple(args)
+                result = cls.gen(types, length, *args, **kwargs)
+                yield result
+
 
     def gen(self, group):
         return [result for result in self.gen_iter(group)]
