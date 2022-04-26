@@ -16,6 +16,8 @@ dlp_test.add_requirement(('RegTestGen.examples.dlpoly_py_func', 'StatisReadWrap'
 
 dlp_test.add_test_function(StatisReadWrap, param_types=(StatisFileParam(),), fail=False, groups=('func',))
 
-dlp_test.add_arg_to_group('func', ('ones',), (27, 3), file='dlp_ones_func.statis')
+
+for var_type in ('zeros', 'ones', 'rand', 'randflat'): #, 'seq', 'fixed'
+    dlp_test.add_arg_to_group('func', (var_type,), (27, 3), file=f'dlp_{var_type}_func.statis', step_type='fixed', step_fixval=-1.0)
 
 dlp_test.write('all', 'dlp_test.py')
